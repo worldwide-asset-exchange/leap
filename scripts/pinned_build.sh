@@ -74,6 +74,8 @@ install_clang() {
         try tar -xvf "${CLANG_FN}" -C "${CLANG_DIR}"
         pushdir "${CLANG_DIR}"
         mv clang+*/* .
+￼       #prevent LLVM bundled with clang from being discovered by cmake
+￼       try rm -r lib/cmake
         popdir "${DEP_DIR}"
         rm "${CLANG_FN}"
     fi
@@ -90,7 +92,7 @@ install_llvm() {
         try tar -xvf "llvm-${LLVM_VER}.src.tar.xz"
         pushdir "${LLVM_DIR}.src"
         pushdir build
-        try cmake -DCMAKE_TOOLCHAIN_FILE="${SCRIPT_DIR}/pinned_toolchain.cmake" -DCMAKE_INSTALL_PREFIX="${LLVM_DIR}" -DCMAKE_BUILD_TYPE=Release -DLLVM_TARGETS_TO_BUILD=host -DLLVM_BUILD_TOOLS=Off -DLLVM_ENABLE_RTTI=On -DLLVM_ENABLE_TERMINFO=Off -DLLVM_ENABLE_LIBCXX=ON -DCMAKE_EXE_LINKER_FLAGS=-pthread -DCMAKE_SHARED_LINKER_FLAGS=-pthread -DLLVM_ENABLE_PIC=NO ..
+        try cmake -DCMAKE_TOOLCHAIN_FILE="${SCRIPT_DIR}/pinned_toolchain.cmake" -DCMAKE_INSTALL_PREFIX="${LLVM_DIR}" -DCMAKE_BUILD_TYPE=Release -DLLVM_TARGETS_TO_BUILD=host -DLLVM_BUILD_TOOLS=Off -DLLVM_ENABLE_RTTI=On -DLLVM_ENABLE_TERMINFO=Off -DCMAKE_EXE_LINKER_FLAGS=-pthread -DCMAKE_SHARED_LINKER_FLAGS=-pthread -DLLVM_ENABLE_PIC=NO ..
         try make -j "${JOBS}"
         try make -j "${JOBS}" install
         popdir "${LLVM_DIR}.src"
@@ -130,7 +132,7 @@ pushdir "${LEAP_DIR}"
 
 # build Leap
 echo "Building Leap ${SCRIPT_DIR}"
-try cmake -DCMAKE_TOOLCHAIN_FILE="${SCRIPT_DIR}/pinned_toolchain.cmake" -DCMAKE_INSTALL_PREFIX=/usr/local -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="${LLVM_DIR}/lib/cmake" -DCMAKE_PREFIX_PATH="${BOOST_DIR}/bin" "${SCRIPT_DIR}/.."
+try cmake -DCMAKE_TOOLCHAIN_FILE="${SCRIPT_DIR}/pinned_toolchain.cmake" -DCMAKE_INSTALL_PREFIX=/usr/local -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="${LLVM_DIR}/lib/cmake" -DCMAKE_PREFIX_PATH="${LLVM_DIR}/lib/cmake;${BOOST_DIR}/bin" "${SCRIPT_DIR}/.."
 
 try make -j "${JOBS}"
 try cpack
