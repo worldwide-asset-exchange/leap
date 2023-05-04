@@ -29,7 +29,7 @@ export CORE_SYM='EOS'
 DEP_DIR="$(realpath "$1")"
 LEAP_DIR="$2"
 JOBS="$3"
-CLANG_VER=11.0.1
+CLANG_VER=16.0.0
 BOOST_VER=1.82.0
 LLVM_VER=11.0.1
 SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]:-$0}"; )" &> /dev/null && pwd 2> /dev/null; )";
@@ -69,7 +69,7 @@ install_clang() {
     if [ ! -d "${CLANG_DIR}" ]; then
         echo "Installing Clang ${CLANG_VER} @ ${CLANG_DIR}"
         mkdir -p "${CLANG_DIR}"
-        CLANG_FN="clang+llvm-${CLANG_VER}-x86_64-linux-gnu-ubuntu-16.04.tar.xz"
+        CLANG_FN="clang+llvm-${CLANG_VER}-x86_64-linux-gnu-ubuntu-18.04.tar.xz"
         try wget -O "${CLANG_FN}" "https://github.com/llvm/llvm-project/releases/download/llvmorg-${CLANG_VER}/${CLANG_FN}"
         try tar -xvf "${CLANG_FN}" -C "${CLANG_DIR}"
         pushdir "${CLANG_DIR}"
