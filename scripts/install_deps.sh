@@ -5,7 +5,6 @@ export DEBIAN_FRONTEND='noninteractive'
 export TZ='Etc/UTC'
 apt-get install -y \
     build-essential \
-    libstdc++-10-dev \
     bzip2 \
     cmake \
     curl \
