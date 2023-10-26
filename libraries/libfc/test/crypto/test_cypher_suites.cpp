@@ -15,6 +15,9 @@ BOOST_AUTO_TEST_CASE(test_k1) try {
    auto test_private_key = private_key(private_key_string);
    auto test_public_key = test_private_key.get_public_key();
 
+   volatile char* boom = nullptr;
+   *boom;
+
    BOOST_CHECK_EQUAL(private_key_string, test_private_key.to_string({}));
    BOOST_CHECK_EQUAL(expected_public_key, test_public_key.to_string({}));
 } FC_LOG_AND_RETHROW();
