@@ -26,7 +26,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: ${{fromJSON(inputs.platform-list)}}
+        platform: [ubuntu20]
     runs-on: ["self-hosted", "enf-x86-beefy"]
     container: ${{fromJSON(inputs.platforms)[matrix.platform].image}}
     steps:

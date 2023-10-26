@@ -17,6 +17,9 @@ int main(int argc, char** argv) {
 
    CLI::App app{"Leap Command Line Utility"};
 
+   volatile char* boom = nullptr;
+   *boom;
+
    // custom leap formatter
    auto fmt = std::make_shared<CLI::LeapFormatter>();
    app.formatter(fmt);
