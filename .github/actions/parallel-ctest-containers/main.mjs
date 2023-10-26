@@ -30,7 +30,7 @@ try {
    let subprocesses = [];
    tests.forEach(t => {
       subprocesses.push(new Promise(resolve => {
-         child_process.spawn("docker", ["run", "--security-opt", "seccomp=unconfined", "-e", "GITHUB_ACTIONS=True", "--name", t.name, "--init", "baseimage", "bash", "-c", `cd build; ctest --output-on-failure -R '^${t.name}$' --timeout ${test_timeout}`], {stdio:"inherit"}).on('close', code => resolve(code));
+         child_process.spawn("docker", ["run", "--security-opt", "seccomp=unconfined", "--mount", "type=bind,source=/var/lib/systemd/coredump,target=/cores", "-e", "GITHUB_ACTIONS=True", "--name", t.name, "--init", "baseimage", "bash", "-c", `cd build; ctest --output-on-failure -R '^${t.name}$' --timeout ${test_timeout}`], {stdio:"inherit"}).on('close', code => resolve(code));
       }));
    });
 
@@ -41,7 +41,7 @@ try {
          continue;
 
       //failing test
-      core.setFailed("Some tests failed");
+      core.setFailed(`Test ${tests[i].name} failed`);
 
       let extractor = tar.extract();
       let packer = tar.pack();
