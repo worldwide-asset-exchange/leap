@@ -4,6 +4,6 @@
        "prerelease":false
     },
     "referencecontracts":{
-       "ref":"main"
+       "ref":"add_cmake_leap&cdt_version_checks"
     }
  }
