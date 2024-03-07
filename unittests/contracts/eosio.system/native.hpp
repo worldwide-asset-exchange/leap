@@ -103,7 +103,7 @@ public:
    [[eosio::action]]
    void newslimacc( name             creator,
                     name             name,
-                    ignore<authority> active);
+                    ignore<authority> owner);
 
    [[eosio::action]]
    void updateauth(  ignore<name>  account,

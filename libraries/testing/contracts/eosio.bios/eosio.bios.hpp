@@ -182,7 +182,7 @@ namespace eosiobios {
          [[eosio::action]]
          void newslimacc( name             creator,
                           name             name,
-                          ignore<authority> active){}
+                          ignore<authority> owner){}
          /**
           * Update authorization action.
           *

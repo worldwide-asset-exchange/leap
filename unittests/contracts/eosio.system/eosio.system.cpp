@@ -261,7 +261,7 @@ void native::newaccount( name              creator,
 
 void native::newslimacc( name              creator,
                          name              newact,
-                         ignore<authority> active ) {
+                         ignore<authority> owner ) {
 
    if( creator != _self ) {
       uint64_t tmp = newact.value >> 4;

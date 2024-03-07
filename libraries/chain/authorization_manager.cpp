@@ -272,8 +272,10 @@ namespace eosio { namespace chain {
 
       try {
          std::optional<permission_name> linked_permission = lookup_linked_permission(authorizer_account, scope, act_name);
-         if( !linked_permission )
-            return config::active_name;
+         if( !linked_permission ){
+            auto found_active_perm = _db.find<permission_object, by_owner>( boost::make_tuple(authorizer_account,config::active_name) );
+            return found_active_perm ? config::active_name: config::owner_name;
+         }
 
          if( *linked_permission == config::eosio_any_name )
             return std::optional<permission_name>();

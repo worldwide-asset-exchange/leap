@@ -112,11 +112,11 @@ public:
         signed_transaction trx;
         set_transaction_headers(trx);
 
-        trx.actions.emplace_back( vector<permission_level>{{creator,config::active_name}},
+        trx.actions.emplace_back( vector<permission_level>{{creator,config::owner_name}},
                                   newslimacc{
                                           .creator  = creator,
                                           .name     = a,
-                                          .active   = authority( get_public_key( a, "active" ) )
+                                          .owner   = authority( get_public_key( a, "owner" ) )
                                   });
 
         trx.actions.emplace_back( get_action( config::system_account_name, "buyrambytes"_n, vector<permission_level>{{creator,config::active_name}},

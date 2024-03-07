@@ -601,7 +601,7 @@ namespace eosio { namespace testing {
       signed_transaction trx;
       set_transaction_headers(trx);
 
-      authority active_auth( get_public_key( a, "active" ) );
+      authority owner_auth( get_public_key( a, "owner" ) );
 
       auto sort_permissions = []( authority& auth ) {
          std::sort( auth.accounts.begin(), auth.accounts.end(),
@@ -612,17 +612,17 @@ namespace eosio { namespace testing {
       };
 
       if( include_code ) {
-         FC_ASSERT( active_auth.threshold <= std::numeric_limits<weight_type>::max(), "threshold is too high" );
-         active_auth.accounts.push_back( permission_level_weight{ {a, config::eosio_code_name},
-                                                                  static_cast<weight_type>(active_auth.threshold) } );
-         sort_permissions(active_auth);
+         FC_ASSERT( owner_auth.threshold <= std::numeric_limits<weight_type>::max(), "threshold is too high" );
+         owner_auth.accounts.push_back( permission_level_weight{ {a, config::eosio_code_name},
+                                                                  static_cast<weight_type>(owner_auth.threshold) } );
+         sort_permissions(owner_auth);
       }
 
       trx.actions.emplace_back( vector<permission_level>{{creator,config::active_name}},
                                 newslimacc{
                                    .creator  = creator,
                                    .name     = a,
-                                   .active   = active_auth,
+                                   .owner   = owner_auth,
                                 });
 
       set_transaction_headers(trx);
@@ -978,14 +978,14 @@ namespace eosio { namespace testing {
    }
 
 
-   void base_tester::set_code( account_name account, const char* wast, const private_key_type* signer  ) try {
-      set_code(account, wast_to_wasm(wast), signer);
+   void base_tester::set_code( account_name account, const char* wast, const private_key_type* signer, permission_name perm ) try {
+      set_code(account, wast_to_wasm(wast), signer, perm);
    } FC_CAPTURE_AND_RETHROW( (account) )
 
 
-   void base_tester::set_code( account_name account, const vector<uint8_t> wasm, const private_key_type* signer ) try {
+   void base_tester::set_code( account_name account, const vector<uint8_t> wasm, const private_key_type* signer, permission_name perm ) try {
       signed_transaction trx;
-      trx.actions.emplace_back( vector<permission_level>{{account,config::active_name}},
+      trx.actions.emplace_back( vector<permission_level>{{account,perm}},
                                 setcode{
                                    .account    = account,
                                    .vmtype     = 0,
@@ -997,16 +997,16 @@ namespace eosio { namespace testing {
       if( signer ) {
          trx.sign( *signer, control->get_chain_id()  );
       } else {
-         trx.sign( get_private_key( account, "active" ), control->get_chain_id()  );
+         trx.sign( get_private_key( account, perm.to_string() ), control->get_chain_id()  );
       }
       push_transaction( trx );
    } FC_CAPTURE_AND_RETHROW( (account) )
 
 
-   void base_tester::set_abi( account_name account, const std::string& abi_json, const private_key_type* signer ) {
+   void base_tester::set_abi( account_name account, const std::string& abi_json, const private_key_type* signer, permission_name perm ) {
       auto abi = fc::json::from_string(abi_json).template as<abi_def>();
       signed_transaction trx;
-      trx.actions.emplace_back( vector<permission_level>{{account,config::active_name}},
+      trx.actions.emplace_back( vector<permission_level>{{account,perm}},
                                 setabi{
                                    .account    = account,
                                    .abi        = fc::raw::pack(abi)
@@ -1016,7 +1016,7 @@ namespace eosio { namespace testing {
       if( signer ) {
          trx.sign( *signer, control->get_chain_id()  );
       } else {
-         trx.sign( get_private_key( account, "active" ), control->get_chain_id()  );
+         trx.sign( get_private_key( account, perm.to_string() ), control->get_chain_id()  );
       }
       push_transaction( trx );
    }
