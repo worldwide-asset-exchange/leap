@@ -223,6 +223,146 @@ try {
 
 } FC_LOG_AND_RETHROW() }
 
+BOOST_AUTO_TEST_CASE(update_auths_with_slim_account) {
+try {
+   validating_tester chain;
+   chain.create_slim_account(name("alice"));
+   chain.create_slim_account(name("bob"));
+
+   // Deleting active should fail
+   BOOST_CHECK_THROW(chain.delete_authority(name("alice"), name("active")), permission_query_exception);
+   // Deleting owner should fail
+   BOOST_CHECK_THROW(chain.delete_authority(name("alice"), name("owner")), action_validate_exception);
+
+   // Change owner permission
+   const auto new_owner_priv_key = chain.get_private_key(name("alice"), "new_owner");
+   const auto new_owner_pub_key = new_owner_priv_key.get_public_key();
+   chain.set_authority(name("alice"), name("owner"), authority(new_owner_pub_key), {});
+   chain.produce_blocks();
+
+   // Ensure the permission is updated
+   permission_object::id_type owner_id;
+   {
+      auto obj = chain.find<permission_object, by_owner>(boost::make_tuple(name("alice"), name("owner")));
+      BOOST_TEST(obj != nullptr);
+      BOOST_TEST(obj->owner == name("alice"));
+      BOOST_TEST(obj->name == name("owner"));
+      BOOST_TEST(obj->parent == 0);
+      owner_id = obj->id;
+      auto auth = obj->auth.to_authority();
+      BOOST_TEST(auth.threshold == 1u);
+      BOOST_TEST(auth.keys.size() == 1u);
+      BOOST_TEST(auth.accounts.size() == 0u);
+      BOOST_TEST(auth.keys[0].key.to_string({}) == new_owner_pub_key.to_string({}));
+      BOOST_TEST(auth.keys[0].key == new_owner_pub_key);
+      BOOST_TEST(auth.keys[0].weight == 1);
+   }
+
+   // set active permission, remember that the owner key has been changed
+   const auto new_active_priv_key = chain.get_private_key(name("alice"), "new_active");
+   const auto new_active_pub_key = new_active_priv_key.get_public_key();
+   chain.set_authority(name("alice"), name("active"), authority(new_active_pub_key), name("owner"),
+                       { permission_level{name("alice"), name("owner")} }, { chain.get_private_key(name("alice"), "new_owner") });
+   chain.produce_blocks();
+
+   {
+      auto obj = chain.find<permission_object, by_owner>(boost::make_tuple(name("alice"), name("active")));
+      BOOST_TEST(obj != nullptr);
+      BOOST_TEST(obj->owner == name("alice"));
+      BOOST_TEST(obj->name == name("active"));
+      BOOST_TEST(obj->parent == owner_id);
+      auto auth = obj->auth.to_authority();
+      BOOST_TEST(auth.threshold == 1u);
+      BOOST_TEST(auth.keys.size() == 1u);
+      BOOST_TEST(auth.accounts.size() == 0u);
+      BOOST_TEST(auth.keys[0].key == new_active_pub_key);
+      BOOST_TEST(auth.keys[0].weight == 1u);
+   }
+
+   auto spending_priv_key = chain.get_private_key(name("alice"), "spending");
+   auto spending_pub_key = spending_priv_key.get_public_key();
+   auto trading_priv_key = chain.get_private_key(name("alice"), "trading");
+   auto trading_pub_key = trading_priv_key.get_public_key();
+
+   // add bob active permission
+   const auto bob_active_priv_key = chain.get_private_key(name("bob"), "active");
+   const auto bob_active_pub_key = bob_active_priv_key.get_public_key();
+   chain.set_authority(name("bob"), name("active"), authority(bob_active_pub_key), name("owner"),
+                       { permission_level{name("bob"), name("owner")} }, { chain.get_private_key(name("bob"), "owner") });
+   // Bob attempts to create new spending auth for Alice
+   BOOST_CHECK_THROW( chain.set_authority( name("alice"), name("spending"), authority(spending_pub_key), name("active"),
+                                           { permission_level{name("bob"), name("active")} },
+                                           { chain.get_private_key(name("bob"), "active") } ),
+                      irrelevant_auth_exception );
+
+   // Create new spending auth
+   chain.set_authority(name("alice"), name("spending"), authority(spending_pub_key), name("active"),
+                       { permission_level{name("alice"), name("active")} }, { new_active_priv_key });
+   chain.produce_blocks();
+   {
+      auto obj = chain.find<permission_object, by_owner>(boost::make_tuple(name("alice"), name("spending")));
+      BOOST_TEST(obj != nullptr);
+      BOOST_TEST(obj->owner == name("alice"));
+      BOOST_TEST(obj->name == name("spending"));
+      BOOST_TEST(chain.get<permission_object>(obj->parent).owner == name("alice"));
+      BOOST_TEST(chain.get<permission_object>(obj->parent).name == name("active"));
+   }
+
+   // Update spending auth parent to be its own, should fail
+   BOOST_CHECK_THROW(chain.set_authority(name("alice"), name("spending"), authority{spending_pub_key}, name("spending"),
+                                         { permission_level{name("alice"), name("spending")} }, { spending_priv_key }), action_validate_exception);
+   // Update spending auth parent to be owner, should fail
+   BOOST_CHECK_THROW(chain.set_authority(name("alice"), name("spending"), authority{spending_pub_key}, name("owner"),
+                                         { permission_level{name("alice"), name("spending")} }, { spending_priv_key }), action_validate_exception);
+
+   // Remove spending auth
+   chain.delete_authority(name("alice"), name("spending"), { permission_level{name("alice"), name("active")} }, { new_active_priv_key });
+   {
+      auto obj = chain.find<permission_object, by_owner>(boost::make_tuple(name("alice"), name("spending")));
+      BOOST_TEST(obj == nullptr);
+   }
+   chain.produce_blocks();
+
+   // Create new trading auth
+   chain.set_authority(name("alice"), name("trading"), authority{trading_pub_key}, name("active"),
+                       { permission_level{name("alice"), name("active")} }, { new_active_priv_key });
+   // Recreate spending auth again, however this time, it's under trading instead of owner
+   chain.set_authority(name("alice"), name("spending"), authority{spending_pub_key}, name("trading"),
+                       { permission_level{name("alice"), name("trading")} }, { trading_priv_key });
+   chain.produce_blocks();
+
+   // Verify correctness of trading and spending
+   {
+      const auto* trading = chain.find<permission_object, by_owner>(boost::make_tuple(name("alice"), name("trading")));
+      const auto* spending = chain.find<permission_object, by_owner>(boost::make_tuple(name("alice"), name("spending")));
+      BOOST_TEST(trading != nullptr);
+      BOOST_TEST(spending != nullptr);
+      BOOST_TEST(trading->owner == name("alice"));
+      BOOST_TEST(spending->owner == name("alice"));
+      BOOST_TEST(trading->name == name("trading"));
+      BOOST_TEST(spending->name == name("spending"));
+      BOOST_TEST(spending->parent == trading->id);
+      BOOST_TEST(chain.get(trading->parent).owner == name("alice"));
+      BOOST_TEST(chain.get(trading->parent).name == name("active"));
+
+   }
+
+   // Delete trading, should fail since it has children (spending)
+   BOOST_CHECK_THROW(chain.delete_authority(name("alice"), name("trading"),
+                                            { permission_level{name("alice"), name("active")} }, { new_active_priv_key }), action_validate_exception);
+   // Update trading parent to be spending, should fail since changing parent authority is not supported
+   BOOST_CHECK_THROW(chain.set_authority(name("alice"), name("trading"), authority{trading_pub_key}, name("spending"),
+                                         { permission_level{name("alice"), name("trading")} }, { trading_priv_key }), action_validate_exception);
+
+   // Delete spending auth
+   chain.delete_authority(name("alice"), name("spending"), { permission_level{name("alice"), name("active")} }, { new_active_priv_key });
+   BOOST_TEST((chain.find<permission_object, by_owner>(boost::make_tuple(name("alice"), name("spending")))) == nullptr);
+   // Delete trading auth, now it should succeed since it doesn't have any children anymore
+   chain.delete_authority(name("alice"), name("trading"), { permission_level{name("alice"), name("active")} }, { new_active_priv_key });
+   BOOST_TEST((chain.find<permission_object, by_owner>(boost::make_tuple(name("alice"), name("trading")))) == nullptr);
+
+} FC_LOG_AND_RETHROW() }
+
 BOOST_AUTO_TEST_CASE(update_auth_unknown_private_key) {
    try {
       validating_tester chain;
@@ -362,6 +502,56 @@ try {
 
    // Creating account with eosio. prefix with non-privileged account, should fail
    BOOST_CHECK_EXCEPTION(chain.create_account(name("eosio.test2"), name("joe")), action_validate_exception,
+                         fc_exception_message_is("only privileged accounts can have names that start with 'eosio.'"));
+
+} FC_LOG_AND_RETHROW() }
+
+BOOST_AUTO_TEST_CASE(create_slim_account) {
+try {
+   validating_tester chain;
+   chain.create_slim_account(name("joe"));
+   chain.produce_block();
+
+   // Verify account created properly
+   const auto& joe_owner_authority = chain.get<permission_object, by_owner>(boost::make_tuple(name("joe"), name("owner")));
+   BOOST_TEST(joe_owner_authority.auth.threshold == 1u);
+   BOOST_TEST(joe_owner_authority.auth.accounts.size() == 1u);
+   BOOST_TEST(joe_owner_authority.auth.keys.size() == 1u);
+   BOOST_TEST(joe_owner_authority.auth.keys[0].key.to_string({}) == chain.get_public_key(name("joe"), "owner").to_string({}));
+   BOOST_TEST(joe_owner_authority.auth.keys[0].weight == 1u);
+
+   const auto& joe_active_authority = chain.find<permission_object, by_owner>(boost::make_tuple(name("joe"), name("active")));
+   BOOST_TEST(joe_active_authority == nullptr);
+
+   // Creating new slim account from a slim account creator
+   chain.create_slim_account(name("alice"), name("joe"), config::owner_name);
+
+   // Verify account created properly
+   const auto& alice_owner_authority = chain.find<permission_object, by_owner>(boost::make_tuple(name("alice"), name("owner")));
+   BOOST_TEST(alice_owner_authority != nullptr);
+   const auto& alice_active_authority = chain.find<permission_object, by_owner>(boost::make_tuple(name("alice"), name("active")));
+   BOOST_TEST(alice_active_authority == nullptr);
+
+   // create new slim account by non-existent creator permission
+   BOOST_CHECK_THROW( chain.create_slim_account(name("bob"), name("joe"), config::active_name), transaction_exception );
+
+   // Create duplicate name
+   BOOST_CHECK_EXCEPTION(chain.create_account(name("joe")), action_validate_exception,
+                         fc_exception_message_is("Cannot create account named joe, as that name is already taken"));
+   // Create duplicate name
+   BOOST_CHECK_EXCEPTION(chain.create_slim_account(name("joe")), action_validate_exception,
+                         fc_exception_message_is("Cannot create account named joe, as that name is already taken"));
+
+   // Creating account with name more than 12 chars
+   BOOST_CHECK_EXCEPTION(chain.create_slim_account(name("aaaaaaaaaaaaa"), name("joe"), config::owner_name), action_validate_exception,
+                         fc_exception_message_is("account names can only be 12 chars long"));
+
+
+   // Creating account with eosio. prefix with privileged account
+   chain.create_slim_account(name("eosio.test1"));
+
+   // Creating account with eosio. prefix with non-privileged account, should fail
+   BOOST_CHECK_EXCEPTION(chain.create_slim_account(name("eosio.test2"), name("joe"), config::owner_name), action_validate_exception,
                          fc_exception_message_is("only privileged accounts can have names that start with 'eosio.'"));
 
 } FC_LOG_AND_RETHROW() }

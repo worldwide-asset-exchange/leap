@@ -597,11 +597,17 @@ namespace eosio { namespace testing {
       return push_transaction( trx );
    }
 
-   transaction_trace_ptr base_tester::create_slim_account( account_name a, account_name creator, bool multisig, bool include_code ) {
+   transaction_trace_ptr base_tester::create_slim_account( account_name a, account_name creator, permission_name creator_perm, bool multisig, bool include_code ) {
       signed_transaction trx;
       set_transaction_headers(trx);
 
-      authority owner_auth( get_public_key( a, "owner" ) );
+      authority owner_auth;
+      if( multisig ) {
+         // multisig between account's owner key and creators active permission
+         owner_auth = authority(2, {key_weight{get_public_key( a, "owner" ), 1}}, {permission_level_weight{{creator, config::active_name}, 1}});
+      } else {
+         owner_auth =  authority( get_public_key( a, "owner" ) );
+      }
 
       auto sort_permissions = []( authority& auth ) {
          std::sort( auth.accounts.begin(), auth.accounts.end(),
@@ -618,7 +624,7 @@ namespace eosio { namespace testing {
          sort_permissions(owner_auth);
       }
 
-      trx.actions.emplace_back( vector<permission_level>{{creator,config::active_name}},
+      trx.actions.emplace_back( vector<permission_level>{{creator,creator_perm}},
                                 newslimacc{
                                    .creator  = creator,
                                    .name     = a,
@@ -626,7 +632,7 @@ namespace eosio { namespace testing {
                                 });
 
       set_transaction_headers(trx);
-      trx.sign( get_private_key( creator, "active" ), control->get_chain_id()  );
+      trx.sign( get_private_key( creator, creator_perm.to_string() ), control->get_chain_id()  );
       return push_transaction( trx );
    }
 

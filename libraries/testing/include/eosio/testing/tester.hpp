@@ -270,6 +270,7 @@ namespace eosio { namespace testing {
 
          transaction_trace_ptr create_slim_account( account_name name,
                                                account_name creator = config::system_account_name,
+                                               permission_name creator_perm = config::active_name,
                                                bool multisig = false,
                                                bool include_code = true
                                              );

@@ -1115,6 +1115,72 @@ BOOST_AUTO_TEST_CASE(newaccount_test)
 
 } FC_LOG_AND_RETHROW() }
 
+BOOST_AUTO_TEST_CASE(newslimacc_test)
+{ try {
+
+   abi_serializer abis(eosio_contract_abi(abi_def()), abi_serializer::create_yield_function( max_serialization_time ));
+
+   BOOST_CHECK(true);
+   const char* test_data = R"=====(
+   {
+     "creator" : "newacct.crtr",
+     "name" : "newacct.name",
+     "owner" : {
+        "threshold" : 2147483145,
+        "keys" : [ {"key" : "EOS65rXebLhtk2aTTzP4e9x1AQZs7c5NNXJp89W8R3HyaA6Zyd4im", "weight" : 57005},
+                   {"key" : "EOS5eVr9TVnqwnUBNwf9kwMTbrHvX5aPyyEG97dz2b2TNeqWRzbJf", "weight" : 57605} ],
+        "accounts" : [ {"permission" : {"actor" : "prm.acct1", "permission" : "prm.prm1"}, "weight" : 53005 },
+                       {"permission" : {"actor" : "prm.acct2", "permission" : "prm.prm2"}, "weight" : 53405 }],
+        "waits" : []
+     }   }
+   )=====";
+
+   auto var = fc::json::from_string(test_data);
+
+   auto newacct = var.as<newslimacc>();
+   BOOST_TEST(name("newacct.crtr") == newacct.creator);
+   BOOST_TEST(name("newacct.name") == newacct.name);
+
+   BOOST_TEST(2147483145u == newacct.owner.threshold);
+
+   BOOST_TEST_REQUIRE(2u == newacct.owner.keys.size());
+   BOOST_TEST("EOS65rXebLhtk2aTTzP4e9x1AQZs7c5NNXJp89W8R3HyaA6Zyd4im" == newacct.owner.keys[0].key.to_string({}));
+   BOOST_TEST(57005u == newacct.owner.keys[0].weight);
+   BOOST_TEST("EOS5eVr9TVnqwnUBNwf9kwMTbrHvX5aPyyEG97dz2b2TNeqWRzbJf" == newacct.owner.keys[1].key.to_string({}));
+   BOOST_TEST(57605u == newacct.owner.keys[1].weight);
+
+   BOOST_TEST_REQUIRE(2u == newacct.owner.accounts.size());
+   BOOST_TEST(name("prm.acct1") == newacct.owner.accounts[0].permission.actor);
+   BOOST_TEST(name("prm.prm1") == newacct.owner.accounts[0].permission.permission);
+   BOOST_TEST(53005u == newacct.owner.accounts[0].weight);
+   BOOST_TEST(name("prm.acct2") == newacct.owner.accounts[1].permission.actor);
+   BOOST_TEST(name("prm.prm2") == newacct.owner.accounts[1].permission.permission);
+   BOOST_TEST(53405u == newacct.owner.accounts[1].weight);
+
+   auto var2 = verify_byte_round_trip_conversion( abis, "newslimacc", var );
+   auto newaccount2 = var2.as<newslimacc>();
+   BOOST_TEST(newacct.creator == newaccount2.creator);
+   BOOST_TEST(newacct.name == newaccount2.name);
+
+   BOOST_TEST(newacct.owner.threshold == newaccount2.owner.threshold);
+
+   BOOST_TEST_REQUIRE(newacct.owner.keys.size() == newaccount2.owner.keys.size());
+   BOOST_TEST(newacct.owner.keys[0].key == newaccount2.owner.keys[0].key);
+   BOOST_TEST(newacct.owner.keys[0].weight == newaccount2.owner.keys[0].weight);
+   BOOST_TEST(newacct.owner.keys[1].key == newaccount2.owner.keys[1].key);
+   BOOST_TEST(newacct.owner.keys[1].weight == newaccount2.owner.keys[1].weight);
+
+   BOOST_TEST_REQUIRE(newacct.owner.accounts.size() == newaccount2.owner.accounts.size());
+   BOOST_TEST(newacct.owner.accounts[0].permission.actor == newaccount2.owner.accounts[0].permission.actor);
+   BOOST_TEST(newacct.owner.accounts[0].permission.permission == newaccount2.owner.accounts[0].permission.permission);
+   BOOST_TEST(newacct.owner.accounts[0].weight == newaccount2.owner.accounts[0].weight);
+   BOOST_TEST(newacct.owner.accounts[1].permission.actor == newaccount2.owner.accounts[1].permission.actor);
+   BOOST_TEST(newacct.owner.accounts[1].permission.permission == newaccount2.owner.accounts[1].permission.permission);
+   BOOST_TEST(newacct.owner.accounts[1].weight == newaccount2.owner.accounts[1].weight);
+
+   verify_type_round_trip_conversion<newslimacc>( abis, "newslimacc", var);
+
+} FC_LOG_AND_RETHROW() }
 
 BOOST_AUTO_TEST_CASE(setcode_test)
 { try {
