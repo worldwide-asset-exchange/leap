@@ -5,7 +5,7 @@ Create a slim account, buy ram, stake for bandwidth for the account
 ## Positional Arguments
 - `creator` _TEXT_  - The name of the account creating the new account
 - `name` _TEXT_  - The name of the new account
-- `ActiveKey` _TEXT_  - The active public key for the new account
+- `ownerKey` _TEXT_  - The owner public key for the new account
 ## Options
 - `-h,--help` Print this help message and exit
 - `--stake-net` _TEXT_ - The amount of EOS delegated for net bandwidth

@@ -4,12 +4,12 @@ Create a new slim account on the blockchain (assumes system contract does not re
 ## Usage
 
 ```console
-Usage: cleos create slimaccount [OPTIONS] creator name ActiveKey
+Usage: cleos create slimaccount [OPTIONS] creator name OwnerKey
 
 Positionals:
   creator TEXT                The name of the account creating the new account (required)
   name TEXT                   The name of the new account (required)
-  ActiveKey TEXT              The active public key or permission level for the new account
+  OwnerKey TEXT              The owner public key or permission level for the new account
 
 Options:
   -h,--help                   Print this help message and exit
