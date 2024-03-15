@@ -547,12 +547,13 @@ try {
                          fc_exception_message_is("account names can only be 12 chars long"));
 
 
-   // Creating account with eosio. prefix with privileged account
-   chain.create_slim_account(name("eosio.test1"));
+   // Creating account with eosio. prefix, should fail
+   BOOST_CHECK_EXCEPTION(chain.create_slim_account(name("eosio.test1")), action_validate_exception,
+                         fc_exception_message_is("only newaccount action can create account with name start with 'eosio.'"));
 
    // Creating account with eosio. prefix with non-privileged account, should fail
    BOOST_CHECK_EXCEPTION(chain.create_slim_account(name("eosio.test2"), name("joe"), config::owner_name), action_validate_exception,
-                         fc_exception_message_is("only privileged accounts can have names that start with 'eosio.'"));
+                         fc_exception_message_is("only newaccount action can create account with name start with 'eosio.'"));
 
 } FC_LOG_AND_RETHROW() }
 

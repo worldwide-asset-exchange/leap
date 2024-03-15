@@ -62,10 +62,7 @@ void validate_authority_precondition( const apply_context& context, const author
 }
 
 /**
- *  This method is called assuming precondition_system_newaccount succeeds a
- */
-/**
- *  This method is called assuming precondition_system_newaccount succeeds a
+ *  This method is called assuming precondition_system_newaccount succeeds
  */
 void apply_eosio_newaccount(apply_context& context) {
    EOS_ASSERT( !context.trx_context.is_read_only(), action_validate_exception, "newaccount not allowed in read-only transaction" );
@@ -86,8 +83,8 @@ void apply_eosio_newaccount(apply_context& context) {
    EOS_ASSERT( name_str.size() <= 12, action_validate_exception, "account names can only be 12 chars long" );
 
    // Check if the creator is privileged
-   const auto &creator = db.get<account_metadata_object, by_name>(create.creator);
-   if( !creator.is_privileged() ) {
+   const auto* creator_metadata = db.find<account_metadata_object,by_name>(create.creator);
+   if( creator_metadata == nullptr || !creator_metadata->is_privileged() ){
       EOS_ASSERT( name_str.find( "eosio." ) != 0, action_validate_exception,
                   "only privileged accounts can have names that start with 'eosio.'" );
    }
@@ -131,7 +128,7 @@ void apply_eosio_newaccount(apply_context& context) {
 } FC_CAPTURE_AND_RETHROW( (create) ) }
 
 /**
- *  This method is called assuming precondition_system_newslimacc succeeds a
+ *  This method is called assuming precondition_system_newslimacc succeeds
  */
 void apply_eosio_newslimacc(apply_context& context) {
    EOS_ASSERT( !context.trx_context.is_read_only(), action_validate_exception, "newslimacc not allowed in read-only transaction" );
@@ -150,12 +147,9 @@ void apply_eosio_newslimacc(apply_context& context) {
    EOS_ASSERT( !create.name.empty(), action_validate_exception, "account name cannot be empty" );
    EOS_ASSERT( name_str.size() <= 12, action_validate_exception, "account names can only be 12 chars long" );
 
-   // Check if the creator is privileged
-   const auto &creator = db.get<account_metadata_object, by_name>(create.creator);
-   if( !creator.is_privileged() ) {
-      EOS_ASSERT( name_str.find( "eosio." ) != 0, action_validate_exception,
-                  "only privileged accounts can have names that start with 'eosio.'" );
-   }
+   // system account only can be created by newaccount
+   EOS_ASSERT( name_str.find( "eosio." ) != 0, action_validate_exception,
+                  "only newaccount action can create account with name start with 'eosio.'" );
 
    auto existing_account = db.find<account_object, by_name>(create.name);
    EOS_ASSERT(existing_account == nullptr, account_name_exists_exception,
