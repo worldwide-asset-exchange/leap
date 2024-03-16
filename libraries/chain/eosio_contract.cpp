@@ -197,14 +197,13 @@ void apply_eosio_setcode(apply_context& context) {
      code_hash = fc::sha256::hash( act.code.data(), (uint32_t)act.code.size() );
      wasm_interface::validate(context.control, act.code);
    }
-
+   db.get<account_object,by_name>(act.account);
    const auto* account_metadata = db.find<account_metadata_object,by_name>(act.account);
    int64_t metadata_ram_delta  = 0;
    if(account_metadata == nullptr){
       metadata_ram_delta -= config::billable_size_v<account_metadata_object>;
       account_metadata = &db.create<account_metadata_object>([&](auto& a) {
          a.name = act.account;
-         a.abi_sequence += 1;
       });
    }
 
@@ -280,30 +279,25 @@ void apply_eosio_setabi(apply_context& context) {
 
    context.require_authorization(act.account);
 
-   const auto& account = db.get<account_object,by_name>(act.account);
-
-   int64_t abi_size = act.abi.size();
-
-   int64_t old_size = (int64_t)account.abi.size();
-   int64_t new_size = abi_size;
-
-   db.modify( account, [&]( auto& a ) {
-      a.abi.assign(act.abi.data(), abi_size);
-   });
-
-   const auto* account_metadata = db.find<account_metadata_object, by_name>(act.account);
+   db.get<account_object,by_name>(act.account);
+   const auto* account_metadata = db.find<account_metadata_object,by_name>(act.account);
    int64_t metadata_ram_delta  = 0;
    if(account_metadata == nullptr){
       metadata_ram_delta -= config::billable_size_v<account_metadata_object>;
-      db.create<account_metadata_object>([&](auto& a) {
+      account_metadata = &db.create<account_metadata_object>([&](auto& a) {
          a.name = act.account;
-         a.abi_sequence += 1;
-      });
-   }else{
-      db.modify( *account_metadata, [&]( auto& a ) {
-         a.abi_sequence += 1;
       });
    }
+
+   int64_t abi_size = act.abi.size();
+
+   int64_t old_size = (int64_t)account_metadata->abi.size();
+   int64_t new_size = abi_size;
+
+   db.modify( *account_metadata, [&]( auto& a ) {
+      a.abi_sequence += 1;
+      a.abi.assign(act.abi.data(), abi_size);
+   });
 
    if (new_size != old_size) {
       if (auto dm_logger = context.control.get_deep_mind_logger(context.trx_context.is_transient())) {

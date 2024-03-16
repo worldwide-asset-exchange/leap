@@ -45,8 +45,8 @@ try
    chain.set_code("slimacc"_n, test_contracts::eosio_token_wasm(), nullptr, config::owner_name);
    chain.set_abi("slimacc"_n, test_contracts::eosio_token_abi(), nullptr, config::owner_name);
 
-   const auto& slim_accnt = chain.control->db().get<account_object,by_name>( "slimacc"_n );
-   BOOST_TEST(slim_accnt.abi.size() != size_t(0));
+   const auto& slim_accnt_metadata = chain.control->db().get<account_metadata_object,by_name>( "slimacc"_n );
+   BOOST_TEST(slim_accnt_metadata.abi.size() != size_t(0));
 
    auto account_metadata_itr = chain.control->db().find<account_metadata_object,by_name>( "slimacc"_n );
    BOOST_TEST(account_metadata_itr != nullptr);

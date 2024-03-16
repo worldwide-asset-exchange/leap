@@ -31,8 +31,7 @@ bool include_delta(const chain::resource_limits::resource_limits_state_object& o
 bool include_delta(const chain::account_object& old, const chain::account_object& curr) {
    return                                               //
        old.name != curr.name ||                         //
-       old.creation_date != curr.creation_date ||       //
-       old.abi != curr.abi;
+       old.creation_date != curr.creation_date;
 }
 
 bool include_delta(const chain::account_metadata_object& old, const chain::account_metadata_object& curr) {

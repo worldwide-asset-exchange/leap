@@ -743,7 +743,6 @@ namespace eosio { namespace testing {
                                                    uint32_t expiration,
                                                    uint32_t delay_sec
                                                  )
-
    { try {
       signed_transaction trx;
       trx.actions.emplace_back( get_action( code, acttype, auths, data ) );
@@ -758,7 +757,8 @@ namespace eosio { namespace testing {
    action base_tester::get_action( account_name code, action_name acttype, vector<permission_level> auths,
                                    const variant_object& data )const { try {
       const auto& acnt = control->get_account(code);
-      auto abi = acnt.get_abi();
+      const auto& accnt_metadata = control->db().get<account_metadata_object, by_name>( code );
+      auto abi = accnt_metadata.get_abi();
       chain::abi_serializer abis(std::move(abi), abi_serializer::create_yield_function( abi_serializer_max_time ));
 
       string action_type_name = abis.get_action_type(acttype);

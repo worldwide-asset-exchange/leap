@@ -853,6 +853,9 @@ struct controller_impl {
             db.create<account_object>([&row](auto& value ){
                value.name = row.name;
                value.creation_date = row.creation_date;
+            });
+            db.create<account_metadata_object>([&](auto& value) {
+               value.name = row.name;
                value.abi = row.abi;
             });
          }
@@ -869,7 +872,9 @@ struct controller_impl {
                value.recv_sequence = row.recv_sequence;
                value.auth_sequence = row.auth_sequence;
             });
-            db.create<account_metadata_object>([&](auto& value) {
+            const auto *acct_metadata_itr = db.find<account_metadata_object, by_name>( row.name );
+            EOS_ASSERT(acct_metadata_itr != nullptr, snapshot_exception, "Unexpected snapshot_account_metadata_object");
+            db.modify( *acct_metadata_itr, [&](auto& value) {
                value.name = row.name;
                value.code_sequence = row.code_sequence;
                value.abi_sequence = row.abi_sequence;
@@ -1084,16 +1089,15 @@ struct controller_impl {
       db.create<account_object>([&](auto& a) {
          a.name = name;
          a.creation_date = initial_timestamp;
-
+      });
+      db.create<account_metadata_object>([&](auto & a) {
+         a.name = name;
+         a.set_privileged( is_privileged );
          if( name == config::system_account_name ) {
             // The initial eosio ABI value affects consensus; see  https://github.com/EOSIO/eos/issues/7794
             // TODO: This doesn't charge RAM; a fix requires a consensus upgrade.
             a.abi.assign(eosio_abi_bin, sizeof(eosio_abi_bin));
          }
-      });
-      db.create<account_metadata_object>([&](auto & a) {
-         a.name = name;
-         a.set_privileged( is_privileged );
       });
 
       const auto& owner_permission  = authorization.create_permission(name, config::owner_name, 0,
