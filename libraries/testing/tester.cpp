@@ -756,7 +756,6 @@ namespace eosio { namespace testing {
 
    action base_tester::get_action( account_name code, action_name acttype, vector<permission_level> auths,
                                    const variant_object& data )const { try {
-      const auto& acnt = control->get_account(code);
       const auto& accnt_metadata = control->db().get<account_metadata_object, by_name>( code );
       auto abi = accnt_metadata.get_abi();
       chain::abi_serializer abis(std::move(abi), abi_serializer::create_yield_function( abi_serializer_max_time ));

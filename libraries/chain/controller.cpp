@@ -844,50 +844,6 @@ struct controller_impl {
       });
    }
 
-   void read_account_object_from_snapshot_v1_to_v6( const snapshot_reader_ptr& snapshot ) {
-      snapshot->read_section("eosio::chain::account_object", [this]( auto& section ) {
-         bool more = !section.empty();
-         while (more) {
-            snapshot_account_object row;
-            more = section.read_row(row, db);
-            db.create<account_object>([&row](auto& value ){
-               value.name = row.name;
-               value.creation_date = row.creation_date;
-            });
-            db.create<account_metadata_object>([&](auto& value) {
-               value.name = row.name;
-               value.abi = row.abi;
-            });
-         }
-      });
-
-      snapshot->read_section("eosio::chain::account_metadata_object", [this]( auto& section ) {
-         bool more = !section.empty();
-         while (more) {
-            snapshot_account_metadata_object row;
-            more = section.read_row(row, db);
-            const auto *acct_itr = db.find<account_object, by_name>( row.name );
-            EOS_ASSERT(acct_itr != nullptr, snapshot_exception, "Unexpected snapshot_account_metadata_object");
-            db.modify( *acct_itr, [&]( account_object& value ){
-               value.recv_sequence = row.recv_sequence;
-               value.auth_sequence = row.auth_sequence;
-            });
-            const auto *acct_metadata_itr = db.find<account_metadata_object, by_name>( row.name );
-            EOS_ASSERT(acct_metadata_itr != nullptr, snapshot_exception, "Unexpected snapshot_account_metadata_object");
-            db.modify( *acct_metadata_itr, [&](auto& value) {
-               value.name = row.name;
-               value.code_sequence = row.code_sequence;
-               value.abi_sequence = row.abi_sequence;
-               value.code_hash = row.code_hash;
-               value.last_code_update = row.last_code_update;
-               value.flags = row.flags;
-               value.vm_type = row.vm_type;
-               value.vm_version = row.vm_version;
-            });
-         }
-      });
-   }
-
    void add_to_snapshot( const snapshot_writer_ptr& snapshot ) {
       // clear in case the previous call to clear did not finish in time of deadline
       clear_expired_input_transactions( fc::time_point::maximum() );
@@ -1037,14 +993,60 @@ struct controller_impl {
             }
          }
 
-         if (header.version < 8){
-            // read account object from old snapshot
-            if (std::is_same<value_t, account_object>::value) {
-               read_account_object_from_snapshot_v1_to_v6(snapshot);
+         if (std::is_same<value_t, account_object>::value) {
+            using v6 = snapshot_account_object_v6;
+
+            if (std::clamp(header.version, v6::minimum_version, v6::maximum_version) == header.version ) {
+               snapshot->read_section<account_object>([&db = this->db](auto& section) {
+                  bool more = !section.empty();
+                  while (more) {
+                     v6 account_object_row;
+                     more = section.read_row(account_object_row, db);
+                     const auto *acct_itr = db.find<account_object, by_name>( account_object_row.name );
+                     if(acct_itr == nullptr){
+                        db.create<account_object>([&account_object_row](auto& value ){
+                           value.name = account_object_row.name;
+                           value.creation_date = account_object_row.creation_date;
+                        });
+                        db.create<account_metadata_object>([&](auto& value) {
+                           value.name = account_object_row.name;
+                           value.abi = account_object_row.abi;
+                        });
+                     }
+                  }
+               });
                return;
             }
-            // skip the account_metadata_object as its inlined with account_object section
-            if (std::is_same<value_t, account_metadata_object>::value){
+         }
+
+         if (std::is_same<value_t, account_metadata_object>::value) {
+            using v6 = snapshot_account_metadata_object_v6;
+
+            if (std::clamp(header.version, v6::minimum_version, v6::maximum_version) == header.version ) {
+               snapshot->read_section<account_metadata_object>([&db = this->db](auto& section) {
+                  bool more = !section.empty();
+                  while (more) {
+                     snapshot_account_metadata_object_v6 account_metadata_object_row;
+                     more = section.read_row(account_metadata_object_row, db);
+                     const auto *acct_itr = db.find<account_object, by_name>( account_metadata_object_row.name );
+                     EOS_ASSERT(acct_itr != nullptr, snapshot_exception, "Unexpected snapshot_account_metadata_object1");
+                     db.modify( *acct_itr, [&]( account_object& value ){
+                        value.recv_sequence = account_metadata_object_row.recv_sequence;
+                        value.auth_sequence = account_metadata_object_row.auth_sequence;
+                     });
+                     const auto *acct_metadata_itr = db.find<account_metadata_object, by_name>( account_metadata_object_row.name );
+                     EOS_ASSERT(acct_metadata_itr != nullptr, snapshot_exception, "Unexpected snapshot_account_metadata_object2");
+                     db.modify( *acct_metadata_itr, [&](auto& value) {
+                        value.code_sequence = account_metadata_object_row.code_sequence;
+                        value.abi_sequence = account_metadata_object_row.abi_sequence;
+                        value.code_hash = account_metadata_object_row.code_hash;
+                        value.last_code_update = account_metadata_object_row.last_code_update;
+                        value.flags = account_metadata_object_row.flags;
+                        value.vm_type = account_metadata_object_row.vm_type;
+                        value.vm_version = account_metadata_object_row.vm_version;
+                     });
+                  }
+               });
                return;
             }
          }

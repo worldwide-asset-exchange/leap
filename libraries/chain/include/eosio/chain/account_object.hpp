@@ -4,17 +4,26 @@
 #include <eosio/chain/code_object.hpp>
 #include <eosio/chain/block_timestamp.hpp>
 #include <eosio/chain/abi_def.hpp>
+#include <eosio/chain/chain_snapshot.hpp>
 
 #include "multi_index_includes.hpp"
 
 namespace eosio { namespace chain {
 
-   struct snapshot_account_object {
+   struct snapshot_account_object_v6 {
+      static constexpr uint32_t minimum_version = 1;
+      static constexpr uint32_t maximum_version = 6;
+      static_assert(chain_snapshot_header::minimum_compatible_version <= maximum_version, "snapshot_account_object_v6 is no longer needed");
+
       account_name         name; //< name should not be changed within a chainbase modifier lambda
       block_timestamp_type creation_date;
       shared_blob          abi;
    };
-   struct snapshot_account_metadata_object {
+   struct snapshot_account_metadata_object_v6 {
+      static constexpr uint32_t minimum_version = 1;
+      static constexpr uint32_t maximum_version = 6;
+      static_assert(chain_snapshot_header::minimum_compatible_version <= maximum_version, "snapshot_account_metadata_object_v6 is no longer needed");
+
       account_name          name; //< name should not be changed within a chainbase modifier lambda
       uint64_t              recv_sequence = 0;
       uint64_t              auth_sequence = 0;
@@ -131,6 +140,6 @@ FC_REFLECT(eosio::chain::account_object, (name)(creation_date)(recv_sequence)(au
 FC_REFLECT(eosio::chain::account_metadata_object, (name)(code_sequence)(abi_sequence)
                                                   (code_hash)(last_code_update)(flags)(vm_type)(vm_version)(abi))
 FC_REFLECT(eosio::chain::account_ram_correction_object, (name)(ram_correction))
-FC_REFLECT(eosio::chain::snapshot_account_object, (name)(creation_date)(abi))
-FC_REFLECT(eosio::chain::snapshot_account_metadata_object, (recv_sequence)(auth_sequence)(name)(code_sequence)(abi_sequence)
+FC_REFLECT(eosio::chain::snapshot_account_object_v6, (name)(creation_date)(abi))
+FC_REFLECT(eosio::chain::snapshot_account_metadata_object_v6, (recv_sequence)(auth_sequence)(name)(code_sequence)(abi_sequence)
                                                   (code_hash)(last_code_update)(flags)(vm_type)(vm_version))
