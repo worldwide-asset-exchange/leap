@@ -141,5 +141,5 @@ FC_REFLECT(eosio::chain::account_metadata_object, (name)(code_sequence)(abi_sequ
                                                   (code_hash)(last_code_update)(flags)(vm_type)(vm_version)(abi))
 FC_REFLECT(eosio::chain::account_ram_correction_object, (name)(ram_correction))
 FC_REFLECT(eosio::chain::snapshot_account_object_v6, (name)(creation_date)(abi))
-FC_REFLECT(eosio::chain::snapshot_account_metadata_object_v6, (recv_sequence)(auth_sequence)(name)(code_sequence)(abi_sequence)
+FC_REFLECT(eosio::chain::snapshot_account_metadata_object_v6, (name)(recv_sequence)(auth_sequence)(code_sequence)(abi_sequence)
                                                   (code_hash)(last_code_update)(flags)(vm_type)(vm_version))

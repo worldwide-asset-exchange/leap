@@ -3,6 +3,7 @@
 #include <eosio/chain/config.hpp>
 #include <eosio/chain/exceptions.hpp>
 #include <eosio/chain/resource_limits.hpp>
+#include <eosio/chain/chain_snapshot.hpp>
 
 #include "multi_index_includes.hpp"
 
@@ -189,14 +190,14 @@ namespace eosio { namespace chain { namespace resource_limits {
    }
 
    using usage_accumulator = impl::exponential_moving_average_accumulator<>;
+   struct snapshot_resource_limits_object_v6 {
+      static constexpr char section_name[] = "eosio::chain::resource_limits::resource_limits_object";
+      static constexpr uint32_t minimum_version = 1;
+      static constexpr uint32_t maximum_version = 6;
+      static_assert(chain_snapshot_header::minimum_compatible_version <= maximum_version, "snapshot_resource_limits_object_v6 is no longer needed");
 
-   /**
-    * Every account that authorizes a transaction is billed for the full size of that transaction. This object
-    * tracks the average usage of that account.
-    */
-   struct resource_limits_object {
       account_name owner; //< owner should not be changed within a chainbase modifier lambda
-      bool pending = false; //< pending should not be changed within a chainbase modifier lambda
+      // bool pending = false; //< pending should not be changed within a chainbase modifier lambda
 
       int64_t net_weight = -1;
       int64_t cpu_weight = -1;
@@ -204,7 +205,11 @@ namespace eosio { namespace chain { namespace resource_limits {
 
    };
 
-   struct resource_usage_object {
+   struct snapshot_resource_usage_object_v6 {
+      static constexpr char section_name[] = "eosio::chain::resource_limits::resource_usage_object";
+      static constexpr uint32_t minimum_version = 1;
+      static constexpr uint32_t maximum_version = 6;
+      static_assert(chain_snapshot_header::minimum_compatible_version <= maximum_version, "snapshot_resource_usage_object_v6 is no longer needed");
 
       account_name owner; //< owner should not be changed within a chainbase modifier lambda
 
@@ -234,14 +239,6 @@ namespace eosio { namespace chain { namespace resource_limits {
       usage_accumulator        net_usage;
       usage_accumulator        cpu_usage;
       uint64_t                 ram_usage = 0;
-
-      resource_limits_object get_limits() const {
-         return resource_limits_object{owner, false, net_weight, cpu_weight, ram_bytes};
-      }
-
-      resource_usage_object get_usage() const {
-         return resource_usage_object{owner, net_usage, cpu_usage, ram_usage};
-      }
    };
 
    struct by_owner;
@@ -268,9 +265,6 @@ namespace eosio { namespace chain { namespace resource_limits {
       int64_t net_weight = -1;
       int64_t cpu_weight = -1;
       int64_t ram_bytes = -1;
-      resource_limits_object get_pending_limits() const {
-         return resource_limits_object{owner, true, net_weight, cpu_weight, ram_bytes};
-      }
    };
 
    using resource_pending_index = chainbase::shared_multi_index_container<
@@ -371,8 +365,8 @@ CHAINBASE_SET_INDEX_TYPE(eosio::chain::resource_limits::resource_limits_state_ob
 FC_REFLECT(eosio::chain::resource_limits::usage_accumulator, (last_ordinal)(value_ex)(consumed))
 
 // @ignore pending
-FC_REFLECT(eosio::chain::resource_limits::resource_limits_object, (owner)(pending)(net_weight)(cpu_weight)(ram_bytes))
-FC_REFLECT(eosio::chain::resource_limits::resource_usage_object, (owner)(net_usage)(cpu_usage)(ram_usage))
+FC_REFLECT(eosio::chain::resource_limits::snapshot_resource_limits_object_v6, (owner)(net_weight)(cpu_weight)(ram_bytes))
+FC_REFLECT(eosio::chain::resource_limits::snapshot_resource_usage_object_v6, (owner)(net_usage)(cpu_usage)(ram_usage))
 FC_REFLECT(eosio::chain::resource_limits::resource_object, (owner)(net_weight)(cpu_weight)(ram_bytes)(net_usage)(cpu_usage)(ram_usage))
 FC_REFLECT(eosio::chain::resource_limits::resource_pending_object,  (owner)(net_weight)(cpu_weight)(ram_bytes))
 FC_REFLECT(eosio::chain::resource_limits::resource_limits_config_object, (cpu_limit_parameters)(net_limit_parameters)(account_cpu_usage_average_window)(account_net_usage_average_window))

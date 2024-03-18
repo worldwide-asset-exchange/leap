@@ -82,47 +82,6 @@ void resource_limits_manager::add_to_snapshot( const snapshot_writer_ptr& snapsh
    });
 }
 
-void resource_limits_manager::read_resource_object_from_snapshot_v1_to_v6( const snapshot_reader_ptr& snapshot ) {
-   snapshot->read_section<resource_limits_object>([&db=this->_db]( auto &section ) {
-      bool more = !section.empty();
-      while (more) {
-         resource_limits_object row;
-         more = section.read_row(row, db);
-         if(row.pending == false){
-            const auto* actual_limits = db.find<resource_object, by_owner>( row.owner );
-            EOS_ASSERT(actual_limits == nullptr, snapshot_exception, "Unexpected resource_limits_object");
-            db.create<resource_object>([&](auto& value) {
-               value.owner = row.owner;
-               value.net_weight = row.net_weight;
-               value.cpu_weight = row.cpu_weight;
-               value.ram_bytes = row.ram_bytes;
-            });
-         } else {
-            db.create<resource_pending_object>([&](auto& value) {
-               value.owner = row.owner;
-               value.net_weight = row.net_weight;
-               value.cpu_weight = row.cpu_weight;
-               value.ram_bytes = row.ram_bytes;
-            });
-         }
-      }
-   });
-   snapshot->read_section<resource_usage_object>([&db=this->_db]( auto &section ) {
-      bool more = !section.empty();
-      while (more) {
-         resource_usage_object row;
-         more = section.read_row(row, db);
-         const auto *actual_limits = db.find<resource_object, by_owner>( row.owner );
-         EOS_ASSERT(actual_limits != nullptr, snapshot_exception, "Unexpected resource_usage_object");
-         db.modify( *actual_limits, [&]( resource_object& value ){
-            value.net_usage = row.net_usage;
-            value.cpu_usage = row.cpu_usage;
-            value.ram_usage = row.ram_usage;
-         });
-      }
-   });
-}
-
 void resource_limits_manager::read_from_snapshot( const snapshot_reader_ptr& snapshot ) {
    chain_snapshot_header header;
    snapshot->read_section<chain_snapshot_header>([this, &header]( auto &section ){
@@ -133,14 +92,44 @@ void resource_limits_manager::read_from_snapshot( const snapshot_reader_ptr& sna
    resource_index_set::walk_indices([this, &snapshot, &header]( auto utils ){
       using value_t = typename decltype(utils)::index_t::value_type;
 
-      if (header.version < 8){
-         // read resource_object and resource_pending_object from old snapshot
-         if (std::is_same<value_t, resource_object>::value) {
-            read_resource_object_from_snapshot_v1_to_v6(snapshot);
-            return;
-         }
-         // skip the resource_pending_object as its inlined with resource_object section
-         if (std::is_same<value_t, resource_pending_object>::value){
+      // read resource_limits_object and resource_usage_object from old snapshot
+      if (std::is_same<value_t, resource_object>::value || std::is_same<value_t, resource_pending_object>::value) {
+         using v6 = snapshot_resource_limits_object_v6;
+         if (std::clamp(header.version, v6::minimum_version, v6::maximum_version) == header.version ) {
+            // skip the resource_pending_object as its inlined with resource_object section
+            if (std::is_same<value_t, resource_pending_object>::value){
+               return;
+            }
+            snapshot->read_section(snapshot_resource_limits_object_v6::section_name, [this]( auto& section ) {
+               bool more = !section.empty();
+               while (more) {
+                  snapshot_resource_limits_object_v6 snapshot_resource_limits;
+                  more = section.read_row(snapshot_resource_limits, _db);
+                  const auto* actual_limits = _db.find<resource_object, by_owner>( snapshot_resource_limits.owner );
+                  EOS_ASSERT(actual_limits == nullptr, snapshot_exception, "Unexpected snapshot_resource_limits_object_v6");
+                  _db.create<resource_object>([&](auto& value) {
+                     value.owner = snapshot_resource_limits.owner;
+                     value.net_weight = snapshot_resource_limits.net_weight;
+                     value.cpu_weight = snapshot_resource_limits.cpu_weight;
+                     value.ram_bytes = snapshot_resource_limits.ram_bytes;
+                  });
+               }
+            });
+
+            snapshot->read_section(snapshot_resource_usage_object_v6::section_name, [this]( auto& section ) {
+               bool more = !section.empty();
+               while (more) {
+                  snapshot_resource_usage_object_v6 snapshot_resource_usage;
+                  more = section.read_row(snapshot_resource_usage, _db);
+                  const auto *actual_limits = _db.find<resource_object, by_owner>( snapshot_resource_usage.owner );
+                  EOS_ASSERT(actual_limits != nullptr, snapshot_exception, "Unexpected snapshot_resource_usage_object_v6");
+                  _db.modify( *actual_limits, [&]( resource_object& value ){
+                     value.net_usage = snapshot_resource_usage.net_usage;
+                     value.cpu_usage = snapshot_resource_usage.cpu_usage;
+                     value.ram_usage = snapshot_resource_usage.ram_usage;
+                  });
+               }
+            });
             return;
          }
       }
@@ -161,7 +150,7 @@ void resource_limits_manager::initialize_account(const account_name& account, bo
       bl.owner = account;
    });
    if (auto dm_logger = _get_deep_mind_logger(is_trx_transient)) {
-      dm_logger->on_newaccount_resource_limits(resource.get_limits(), resource.get_usage());
+      dm_logger->on_newaccount_resource_limits(resource);
    }
 }
 
@@ -211,7 +200,7 @@ void resource_limits_manager::add_transaction_usage(const flat_set<account_name>
           bu.cpu_usage.add( cpu_usage, time_slot, config.account_cpu_usage_average_window );
 
          if (auto dm_logger = _get_deep_mind_logger(is_trx_transient)) {
-            dm_logger->on_update_account_usage(bu.get_usage());
+            dm_logger->on_update_account_usage(usage);
          }
       });
 
@@ -350,7 +339,8 @@ bool resource_limits_manager::set_account_limits( const account_name& account, i
       pending_limits.cpu_weight = cpu_weight;
 
       if (auto dm_logger = _get_deep_mind_logger(is_trx_transient)) {
-         dm_logger->on_set_account_limits(pending_limits.get_pending_limits());
+         const auto& actual_limits = _db.get<resource_object, by_owner>( account);
+         dm_logger->on_set_account_limits(actual_limits, pending_limits);
       }
    });
 
